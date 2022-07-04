@@ -3,9 +3,10 @@ class Settings:
 
     def __init__(self):
         """starts the game's settings"""
-        self.screen_width = 600
-        self.screen_height = 800
-        self.back_color = (5, 55, 123)
+        self.screen_width = 800
+        self.screen_height = 600
+        self.back_color = (5, 2, 3)
+        self.text_color = (49, 0, 71)
 
         # ship settings
         self.ship_speed = 0.17
@@ -20,4 +21,5 @@ class Settings:
 
         # Invasor setting
         self.invasors_speed = 0.15
+        self.invasor_direction = -1
         self.max_number_of_invasors = 10

@@ -12,7 +12,7 @@ class Score:
         self.stats = si_game.stats
 
         # Font settings for scoring information.
-        self.text_color = (30, 30, 30)
+        self.text_color = self.settings.text_color
         self.font = pygame.font.SysFont(None, 48)
 
         # Prepare the initial score image.
