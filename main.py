@@ -26,8 +26,14 @@ class SpaceInvaders:
 
         self.spaceship = SpaceShip(self)
         self.bullets = pygame.sprite.Group()
+
+        # enemies
         self.invasors_bullets = pygame.sprite.Group()
         self.invasors = pygame.sprite.Group()
+        self.bosses = pygame.sprite.Group()
+        self.boss_bullets = pygame.sprite.Group()
+
+       # game stats
         self.stats = GameStats(self)
         self.score = Score(self)
         self.lives_table = Lives(self)
@@ -36,6 +42,7 @@ class SpaceInvaders:
         self.time_elapsed_game = 0
         self.time_elapsed_fleets = 0
         self.time_invasors_bullets_cooldowns = 0
+        self.time_boss_bullets_cooldowns = 0
         self.clock = pygame.time.Clock()
 
         # background
@@ -66,12 +73,13 @@ class SpaceInvaders:
                 self.spaceship.update()
                 self._create_fleat()
                 self._fleet_bullets()
+                self._boss_bullets()
                 self._update_invasors()
                 # clock related
-
                 self.clock_ticks = self.clock.tick()
                 self.time_elapsed_fleets += self.clock_ticks
                 self.time_invasors_bullets_cooldowns += self.clock_ticks
+                self.time_boss_bullets_cooldowns += self.clock_ticks
 
     def _check_events(self):
         """Keypresses and mouse"""
@@ -90,6 +98,7 @@ class SpaceInvaders:
         # Update the bullet y pos
         self.bullets.update()
         self.invasors_bullets.update()
+        self.boss_bullets.update()
 
         # Delete old bullets
         for bullet in self.bullets.copy():
@@ -99,13 +108,26 @@ class SpaceInvaders:
         collision = pygame.sprite.groupcollide(
             self.bullets, self.invasors, True, True)
 
-        if collision:
+        boss_collision = pygame.sprite.groupcollide(
+            self.bullets, self.bosses, True, False)
+
+        if boss_collision:
+            self.settings.Redboss_health -= 1
+            if self.settings.Redboss_health < 1:
+                self.bosses.empty()
+                self.stats.score += 320
+                self.score.prep_score()
+                self.stats.boss_status = False
+                self.settings.Redboss_health = 10
+
+            # if the boss is active the enimies gives no points
+        if collision and self.stats.boss_status == False:
             self.stats.score += 20
             self.score.prep_score()
 
          # Delete old bullets of invasors
         for bullet in self.invasors_bullets.copy():
-            if bullet.rect.bottom <= 0 or bullet.rect.bottom > self.settings.screen_height:
+            if bullet.rect.bottom > self.settings.screen_height:
                 self.invasors_bullets.remove(bullet)
 
         collision_invasors_bullets = pygame.sprite.spritecollide(
@@ -115,10 +137,29 @@ class SpaceInvaders:
             self.stats.spaceships_left -= 1
             self.lives_table.prep_lives()
 
+        for bullet in self.boss_bullets.copy():
+            if bullet.rect.bottom > self.settings.screen_height:
+                self.boss_bullets.remove(bullet)
+
+        collision_boss_bullets = pygame.sprite.spritecollide(
+            self.spaceship, self.boss_bullets, True)
+
+        if collision_boss_bullets:
+            self.stats.spaceships_left -= 1
+            self.lives_table.prep_lives()
+
     def _update_invasors(self):
         # Update the invasors y pos
         self.invasors.update()
+        self.bosses.update()
+
         if pygame.sprite.spritecollide(self.spaceship, self.invasors, True):
+            self.stats.spaceships_left -= 1
+            self.lives_table.prep_lives()
+        if self.stats.spaceships_left <= 0:
+            self.stats.game_running = False
+
+        if pygame.sprite.spritecollide(self.spaceship, self.bosses, True):
             self.stats.spaceships_left -= 1
             self.lives_table.prep_lives()
         if self.stats.spaceships_left <= 0:
@@ -131,6 +172,12 @@ class SpaceInvaders:
                 self.settings.invasor_direction = 1
             if invasor.rect.right > self.settings.screen_width:
                 self.settings.invasor_direction = -1
+
+        for boss in self.bosses.copy():
+            if boss.rect.left < 0:
+                self.settings.boss_direction = 1
+            if boss.rect.right > self.settings.screen_width:
+                self.settings.boss_direction = -1
 
     def _update_screen(self):
         # redraw the screen each pass
@@ -151,6 +198,8 @@ class SpaceInvaders:
         for bullet in self.invasors_bullets.sprites():
             bullet.draw_bullet()
         self.invasors.draw(self.screen)
+        self.bosses.draw(self.screen)
+        self.boss_bullets.draw(self.screen)
 
         self.score.draw_score()
         self.lives_table.draw_lives()
@@ -201,14 +250,14 @@ class SpaceInvaders:
             self.lives_table.prep_lives()
 
     def _enemy_spawn(self):
-        enemy_list = ['green', 'blue']
+        enemy_list = ['green', 'green', 'green', 'blue']
         spawn_enemy = random.choice(enemy_list)
         return spawn_enemy
 
     def _create_fleat(self):
         if self.settings.max_number_of_invasors > len(self.invasors) and self.time_elapsed_fleets > 500:
             enemy_spawn = self._enemy_spawn()
-            if enemy_spawn == 'green':
+            if enemy_spawn == 'green' and self.stats.boss_status == False:
                 green_invasor = invasors.GreenInvasors(self)
                 invasors_width = green_invasor.rect.width
                 green_invasor.y = -50
@@ -218,7 +267,7 @@ class SpaceInvaders:
                 green_invasor.rect.y = green_invasor.y
                 green_invasor.add(self.invasors)
                 self.time_elapsed_fleets = 0
-            if enemy_spawn == 'blue':
+            if enemy_spawn == 'blue' and self.stats.boss_status == False:
                 blue_invasor = invasors.BlueInvasors(self)
                 invasors_width = blue_invasor.rect.width
                 blue_invasor.y = -50
@@ -228,12 +277,36 @@ class SpaceInvaders:
                 blue_invasor.rect.y = blue_invasor.y
                 blue_invasor.add(self.invasors)
                 self.time_elapsed_fleets = 0
+            if self.stats.score % 100 == 0 and self.stats.score != 0 and self.stats.boss_status == False:
+                self.stats.boss_status = True
+                boss = invasors.RedBoss(self)
+                boss.y = -50
+                boss.x = self.settings.screen_width / 2
+                boss.rect.x = boss.x
+                boss.rect.y = boss.y
+                boss.add(self.bosses)
+            if self.stats.boss_status and self.time_elapsed_fleets == 1000:
+                yellow_invasor = invasors.YellowInvasors(self)
+                invasors_width = yellow_invasor.rect.width
+                yellow_invasor.y = -50
+                yellow_invasor.x = random.randint(
+                    invasors_width, self.settings.screen_width - invasors_width)
+                yellow_invasor.rect.x = yellow_invasor.x
+                yellow_invasor.rect.y = yellow_invasor.y
+                yellow_invasor.add(self.invasors)
+                self.time_elapsed_fleets = 0
 
     def _fleet_bullets(self):
-        if self.time_invasors_bullets_cooldowns > 250:
+        if self.time_invasors_bullets_cooldowns > 250 and len(self.invasors) >= 1 and self.stats.boss_status == False:
             new_bullet = bullets.InvasorsBullets(self)
             self.invasors_bullets.add(new_bullet)
             self.time_invasors_bullets_cooldowns = 0
+
+    def _boss_bullets(self):
+        if self.time_boss_bullets_cooldowns > 750 and self.bosses:
+            new_bullet = bullets.BossBullets(self)
+            self.boss_bullets.add(new_bullet)
+            self.time_boss_bullets_cooldowns = 0
 
 
 if __name__ == '__main__':

@@ -21,5 +21,8 @@ class Settings:
 
         # Invasor setting
         self.invasors_speed = 0.15
+        self.boss_speed = 0.2
         self.invasor_direction = -1
-        self.max_number_of_invasors = 10
+        self.boss_direction = -1
+        self.max_number_of_invasors = 6
+        self.Redboss_health = 30
